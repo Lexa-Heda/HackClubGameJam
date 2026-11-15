@@ -7,26 +7,26 @@ class Poi:
 	func _init(p_timestamp: float = 0.0) -> void:
 		timestamp = p_timestamp
 
-const SCROLL_SPEED := 200.0  # ggf. Constants.constants.SCROLL_SPEED
-const LEAD_TIME := 2.0
-const VISIBLE_TIME := 5.0
+const SCROLL_SPEED := 200.0
+const LEAD_TIME := 5.0
+const VISIBLE_TIME := 10.0
 const MIN_POI_GAP := 1.5
+const FORCE_GAP_GAP := 0.5
 const MIN_CONNECTION := 40.0
 const MARGIN := 4.0
 const FIRST_FLOOR_WIDTH := 300.0
 
 const Y_MIN := 300.0
 const Y_MAX := 800.0
-const MAX_REPEATS := 2  # gleicher Typ höchstens so oft hintereinander
+const MAX_REPEATS := 2
 
-# Basisgewichte der Hindernisse
 const WEIGHTS := {
 	LevelElement.Type.GAP: 3.0,
 	LevelElement.Type.WALLJUMP: 2.0,
 	LevelElement.Type.DROPDOWN: 2.0,
 }
 
-var seed_value := 0  # 0 = zufällig, sonst reproduzierbar
+var seed_value := 0
 
 
 func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
@@ -50,6 +50,7 @@ func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
 	var last_time := 0.0
 	var consumed := FIRST_FLOOR_WIDTH
 	var history: Array[int] = []
+	var pending: Array[float] = []
 
 	var sorted: Array[Poi] = []
 	sorted.append_array(pois)
@@ -57,11 +58,14 @@ func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
 
 	for poi in sorted:
 		var delta := poi.timestamp - last_time
-		if delta < MIN_POI_GAP:
-			continue
+		var min_conn := 8.0 if delta < MIN_POI_GAP else MIN_CONNECTION
+		var width := maxf(min_conn, delta * SCROLL_SPEED - consumed)
 
-		var width := maxf(MIN_CONNECTION, delta * SCROLL_SPEED - consumed)
-		var order := _weighted_order(cursor, history, rng)
+		var order: Array[int] = []
+		if delta < FORCE_GAP_GAP:
+			order.append(LevelElement.Type.GAP)
+		else:
+			order = _weighted_order(cursor, history, rng)
 
 		var pair: Array[LevelElement] = []
 		for t in order:
@@ -71,25 +75,48 @@ func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
 				break
 
 		if pair.is_empty():
-			# Fallback: schlichter Boden, damit kein POI ausfaellt.
+			pair = _place(elements, poi.timestamp, LevelElement.Type.GAP, width, cursor, corner)
+		if pair.is_empty():
 			pair = _place(elements, poi.timestamp, LevelElement.Type.FLOOR, width, cursor, corner)
+		if pair.is_empty():
+			pair = _place(elements, poi.timestamp, LevelElement.Type.FLOOR, width, cursor, corner, true)
 
 		if pair.is_empty():
-			push_warning("POI bei %.2fs übersprungen: kein freier Platz." % poi.timestamp)
+			pending.append(poi.timestamp)
 			continue
 
 		for e in pair:
 			elements.append(e)
+
+		# Geparkte Sub-Beats: nur Soll-Zeit speichern, level.gd setzt die Position.
+		if not pending.is_empty():
+			var conn: LevelElement = pair[0]
+			for ts in pending:
+				conn.add_prompt(conn.start_pos + Vector2(0.0, -50.0), ts - poi.timestamp)
+			pending.clear()
+
 		var obstacle: LevelElement = pair[1]
 		cursor = obstacle.end_pos
 		corner = obstacle.out_corner
 		last_time = poi.timestamp
-		consumed = obstacle.path_length()
+		consumed = _consumed_for(obstacle)
 
 	return elements
 
 
-# Gewichtete Zufallsreihenfolge: erster Eintrag = bevorzugter Typ.
+# Muss zu den Dauern in level.gd::_build_path() passen:
+# Gap 0.5 s, Walljump 1.0 s, Dropdown 1.0 s (bei SCROLL_SPEED px/s).
+func _consumed_for(o: LevelElement) -> float:
+	match o.type:
+		LevelElement.Type.GAP:
+			return 0.5 * SCROLL_SPEED
+		LevelElement.Type.WALLJUMP:
+			return 1.0 * SCROLL_SPEED
+		LevelElement.Type.DROPDOWN:
+			return 1.0 * SCROLL_SPEED
+	return o.path_length()
+
+
 func _weighted_order(cursor: Vector2, history: Array[int], rng: RandomNumberGenerator) -> Array[int]:
 	var pool: Dictionary = {}
 
@@ -101,14 +128,12 @@ func _weighted_order(cursor: Vector2, history: Array[int], rng: RandomNumberGene
 		if t == LevelElement.Type.DROPDOWN and cursor.y + 200.0 > Y_MAX:
 			continue
 
-		# Höhenausgleich: tief -> Walljump bevorzugen, hoch -> Dropdown.
 		var mid := (Y_MIN + Y_MAX) * 0.5
 		if t == LevelElement.Type.WALLJUMP and cursor.y > mid:
 			w *= 2.0
 		if t == LevelElement.Type.DROPDOWN and cursor.y < mid:
 			w *= 2.0
 
-		# Zu viele Wiederholungen vermeiden.
 		if _repeat_count(history, t) >= MAX_REPEATS:
 			w *= 0.05
 
@@ -129,6 +154,8 @@ func _weighted_order(cursor: Vector2, history: Array[int], rng: RandomNumberGene
 		order.append(picked)
 		pool.erase(picked)
 
+	if order.is_empty():
+		order.append(LevelElement.Type.GAP)
 	return order
 
 
@@ -141,14 +168,14 @@ func _repeat_count(history: Array[int], t: int) -> int:
 	return n
 
 
-# Gibt [connection, obstacle] zurück oder [] bei Kollision.
 func _place(
 		elements: Array[LevelElement],
 		timestamp: float,
 		type: int,
 		width: float,
 		cursor: Vector2,
-		corner: int
+		corner: int,
+		force: bool = false
 ) -> Array[LevelElement]:
 	var previous: LevelElement = elements[-1]
 	var obstacle_start := cursor + Vector2(width * float(corner), 0.0)
@@ -164,7 +191,9 @@ func _place(
 	obstacle.set_timing(timestamp, LEAD_TIME, VISIBLE_TIME)
 	connection.appear_time = minf(connection.appear_time, previous.appear_time)
 
-	if _collides(connection, elements, previous) or _collides(obstacle, elements, previous):
+	if not force and (
+			_collides(connection, elements, previous)
+			or _collides(obstacle, elements, previous)):
 		return []
 
 	var result: Array[LevelElement] = [connection, obstacle]

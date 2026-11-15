@@ -11,7 +11,7 @@ const WALL_EDGE_COLOR := Color("#ffc36a")
 
 const FLOOR_THICKNESS := 24.0
 const WALL_THICKNESS := 16.0
-const WALL_HEIGHT := 100.0
+const WALL_HEIGHT := 140.0
 const FADE_TIME := 0.5
 
 var type: int

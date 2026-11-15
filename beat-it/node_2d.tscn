@@ -14,7 +14,6 @@
 [ext_resource type="Texture2D" uid="uid://jkppxfb24ef3" path="res://assets/run-pngs/15.png" id="13_gt76g"]
 [ext_resource type="Texture2D" uid="uid://ds8j47jagxfn3" path="res://assets/all.png" id="14_1fr6y"]
 [ext_resource type="Texture2D" uid="uid://xpljclekfitu" path="res://assets/jump/Jump.png" id="14_d2bti"]
-[ext_resource type="Texture2D" path="res://assets/flow/Fall.png" id="15_ta5nu"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_i87pm"]
 animations = [{
@@ -70,7 +69,7 @@ animations = [{
 "duration": 1.0,
 "texture": ExtResource("13_gt76g")
 }],
-"loop": 1,
+"loop": true,
 "name": &"default",
 "speed": 17.04
 }]
@@ -204,25 +203,21 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_ornx7")
 }],
-"loop": 1,
+"loop": true,
 "name": &"default",
 "speed": 30.0
 }]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_cnnru"]
-atlas = ExtResource("15_ta5nu")
 region = Rect2(0, 0, 300, 300)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_540hr"]
-atlas = ExtResource("15_ta5nu")
 region = Rect2(300, 0, 300, 300)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_6ip5v"]
-atlas = ExtResource("15_ta5nu")
 region = Rect2(600, 0, 300, 300)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_q5dlx"]
-atlas = ExtResource("15_ta5nu")
 region = Rect2(900, 0, 300, 300)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_gl4f7"]
@@ -240,7 +235,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_q5dlx")
 }],
-"loop": 2,
+"loop": true,
 "name": &"default",
 "speed": 19.0
 }]

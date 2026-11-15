@@ -1,6 +1,8 @@
 [gd_scene format=3 uid="uid://24i5tnqc3sgd"]
 
-[ext_resource type="Script" uid="uid://taeqtu2uhsqp" path="res://level.gd" id="1"]
+[ext_resource type="Script" uid="uid://6ca6t4w2j02l" path="res://level.gd" id="1"]
 
 [node name="Level" type="Node2D" unique_id=1469671988]
 script = ExtResource("1")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1692707647]
