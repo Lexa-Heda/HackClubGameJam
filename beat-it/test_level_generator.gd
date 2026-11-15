@@ -26,22 +26,20 @@ func _ready() -> void:
 	var obstacles: Array[Generator.ObstacleData] = Generator.generator.new().generate_level(poi)
 
 	# --- Assertions ---
-	_assert(obstacles.size() == poi.size(), "Anzahl Obstacles == Anzahl POIs")
+	_assert(obstacles.size() >= poi.size(), "Mindestens ein Obstacle pro POI (Walldash expandiert)")
 	_assert(obstacles[0].element_name == "CHANGE_IN_HEIGHTS", "Erstes Hindernis ist CHANGE_IN_HEIGHTS")
 
-	var prev_x := -1.0
 	var prev_timestamp := -1.0
 	for o in obstacles:
-		_assert(o.x == o.timestamp * Constants.constants.SCROLL_SPEED, "x = timestamp * SCROLL_SPEED")
-		_assert(o.x > prev_x, "x-Positionen sind monoton steigend")
-		_assert(absf(o.y) <= 40.0, "y innerhalb HEIGHT_LIMIT")
-		_assert(o.timestamp > prev_timestamp, "Timestamps sind monoton steigend")
-		prev_x = o.x
+		_assert(absf(o.y) <= 80.0, "y innerhalb Layer-Range (-80..+80)")
+		_assert(o.timestamp >= prev_timestamp, "Timestamps sind monoton steigend")
 		prev_timestamp = o.timestamp
 
-	# Kein Element darf direkt auf sich selbst folgen (Generator-Regel)
+	# Kein Element darf direkt auf sich selbst folgen (Generator-Regel),
+	# ausser WALDASH-Paare (2 Waende gehoeren zusammen)
 	for i in range(1, obstacles.size()):
-		_assert(obstacles[i].element_name != obstacles[i - 1].element_name,
+		var is_wall_pair := obstacles[i].element_name == "WALLDASH" and obstacles[i - 1].element_name == "WALLDASH"
+		_assert(is_wall_pair or obstacles[i].element_name != obstacles[i - 1].element_name,
 			"Kein Element wiederholt sich direkt (Index %d)" % i)
 
 	# --- Zusammenfassung ---

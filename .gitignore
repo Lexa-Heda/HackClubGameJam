@@ -23,3 +23,15 @@ mono_crash.*.json
 *.exe
 # Uncomment if your project does not version PCK files as runtime dependencies.
 # *.pck
+/beat-it/.gitattributes
+/beat-it/constants.gd.uid
+/.idea/encodings.xml
+/beat-it/floor.png.import
+/.idea/indexLayout.xml
+/beat-it/level.gd.uid
+/beat-it/level_element.gd.uid
+/beat-it/level_generator.gd.uid
+/beat-it/player.gd.uid
+/beat-it/test_level_generator.gd.uid
+/.idea/vcs.xml
+/beat-it/wall.png.import
