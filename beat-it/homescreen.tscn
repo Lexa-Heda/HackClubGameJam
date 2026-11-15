@@ -1,44 +1,44 @@
 [gd_scene format=3 uid="uid://cd2v76h0si5ey"]
 
 [ext_resource type="Texture2D" uid="uid://ckcbh8jd57e72" path="res://assets/homescreen/Beat It.png" id="1_1bjcg"]
-[ext_resource type="Texture2D" uid="uid://bb6rm7ri43e2i" path="res://assets/homescreen/NewGame.png" id="2_edeuv"]
+[ext_resource type="Texture2D" uid="uid://coqijo7c77qpc" path="res://assets/homescreen/easy.png" id="3_a17e7"]
 [ext_resource type="Texture2D" uid="uid://nc1p4mmppjqy" path="res://assets/homescreen/stickman.png" id="3_c2ysq"]
+[ext_resource type="Texture2D" uid="uid://byihp5sjb4jpq" path="res://assets/homescreen/medium.png" id="4_v0us7"]
+[ext_resource type="Texture2D" uid="uid://56sfio8lch0n" path="res://assets/homescreen/hard.png" id="5_gboke"]
 
-[node name="MarginContainer" type="MarginContainer" unique_id=1333038275]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 120
-theme_override_constants/margin_top = 80
-theme_override_constants/margin_right = 120
-theme_override_constants/margin_bottom = 80
+[node name="MarginContainer" type="Node2D" unique_id=88837657]
 
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=2147140996]
-layout_mode = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer" unique_id=1342729764]
-layout_mode = 2
-size_flags_horizontal = 3
-alignment = 1
-
-[node name="VBoxContainer3" type="VBoxContainer" parent="HBoxContainer/VBoxContainer" unique_id=1640900565]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="BeatIt" type="TextureRect" parent="HBoxContainer/VBoxContainer/VBoxContainer3" unique_id=1726685937]
-layout_mode = 2
+[node name="beatit" type="Sprite2D" parent="." unique_id=1372397041]
+position = Vector2(358, 115)
+scale = Vector2(1.3969072, 1.3969072)
 texture = ExtResource("1_1bjcg")
 
-[node name="newGame" type="TextureRect" parent="HBoxContainer/VBoxContainer" unique_id=1216699767]
-layout_mode = 2
-texture = ExtResource("2_edeuv")
-stretch_mode = 2
-
-[node name="VBoxContainer2" type="VBoxContainer" parent="HBoxContainer" unique_id=2030602714]
-layout_mode = 2
-
-[node name="stickman" type="TextureRect" parent="HBoxContainer/VBoxContainer2" unique_id=2045765974]
-layout_mode = 2
+[node name="stickman" type="Sprite2D" parent="." unique_id=551950545]
+position = Vector2(858, 379.63815)
+scale = Vector2(1.0855263, 1.0855263)
 texture = ExtResource("3_c2ysq")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1030773229]
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 69.0
+offset_top = 290.5
+offset_right = 337.0
+offset_bottom = 541.5
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="VBoxContainer" unique_id=855880859]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+texture = ExtResource("3_a17e7")
+
+[node name="TextureRect2" type="TextureRect" parent="VBoxContainer" unique_id=841329261]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+texture = ExtResource("4_v0us7")
+
+[node name="TextureRect3" type="TextureRect" parent="VBoxContainer" unique_id=457233287]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+texture = ExtResource("5_gboke")
