@@ -37,6 +37,14 @@ const DEBOUNCE := 0.2  # Sekunden Sperre nach einem ausgewerteten Druck
 var _space_down := false
 var _space_locked_until := 0.0
 
+# Screen-Bounce (Zoom-Punch) bei POI-Timestamps
+var _poi_times: Array[float] = []
+var _prev_time := 0.0
+var _punch_t := -1.0  # -1 = inaktiv, sonst Sekunden seit Punch-Start
+const BASE_ZOOM := 1.5
+const PUNCH_DUR := 0.5
+const PUNCH_AMP := 0.12  # +12% Zoom-Spitze
+
 func _ready() -> void:
 	_generate()
 	_spawn_player()
@@ -55,6 +63,7 @@ func _generate() -> void: # fast: [2.0, 3.0, 3.5, 4.0, 5.0, 5.5, 6.0] slow: [6.0
 		var p := LevelGenerator.Poi.new(t)
 		p.timestamp = t
 		pois.append(p)
+		_poi_times.append(t)
 
 	_generator.seed_value = 1234
 	_elements = _generator.generate(pois, START_POS)
@@ -71,7 +80,7 @@ func _spawn_player() -> void:
 
 func _setup_camera() -> void:
 	_camera = Camera2D.new()
-	_camera.zoom = Vector2(1.5, 1.5)
+	_camera.zoom = Vector2(BASE_ZOOM, BASE_ZOOM)
 	add_child(_camera)
 	_camera.global_position = _player.global_position
 	_camera.make_current()
@@ -87,10 +96,24 @@ func _reset() -> void:
 	_player.global_position = _pos
 	_space_down = false
 	_space_locked_until = 0.0
+	_prev_time = 0.0
+	_punch_t = -1.0
+	if _camera:
+		_camera.zoom = Vector2(BASE_ZOOM, BASE_ZOOM)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_camera.global_position = _player.global_position
+	if _punch_t >= 0.0:
+		_punch_t += delta
+		var p := _punch_t / PUNCH_DUR
+		if p >= 1.0:
+			_punch_t = -1.0
+			_camera.zoom = Vector2(BASE_ZOOM, BASE_ZOOM)
+		else:
+			# abklingende Schwingung um die Basis-Zoom (Bounce nach innen)
+			var s := sin(p * PI * 4.0) * exp(-4.0 * p) * PUNCH_AMP
+			_camera.zoom = Vector2(BASE_ZOOM * (1.0 + s), BASE_ZOOM * (1.0 + s))
 	queue_redraw()
 
 
@@ -101,13 +124,30 @@ func _draw() -> void:
 
 func _physics_process(delta: float) -> void:
 	_time += delta
+	# Punch an den POI-Timestamps (Quelle der Wahrheit), unabhaengig davon,
+	# ob der Generator fuer diesen POI ein Element platzieren konnte.
+	for t in _poi_times:
+		if t > _prev_time and t <= _time:
+			_punch_t = 0.0
+			break
+	_prev_time = _time
 	_collect_solids()
 	_control()
 	_move(delta)
 	_player.global_position = _pos
+	_update_anim()
 	if _pos.y > 1600.0:
 		_reset()
 	_check_missed()
+
+func _update_anim() -> void:
+	var state := "fall"
+	if _on_floor:
+		state = "run"
+	elif _vel.y < 0.0:
+		state = "jump"
+	_player.set_state(state, _dir < 0.0)
+
 
 func _check_missed() -> void:
 	for e in _elements:
