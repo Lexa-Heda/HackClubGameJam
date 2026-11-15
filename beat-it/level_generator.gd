@@ -71,6 +71,10 @@ func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
 				break
 
 		if pair.is_empty():
+			# Fallback: schlichter Boden, damit kein POI ausfaellt.
+			pair = _place(elements, poi.timestamp, LevelElement.Type.FLOOR, width, cursor, corner)
+
+		if pair.is_empty():
 			push_warning("POI bei %.2fs übersprungen: kein freier Platz." % poi.timestamp)
 			continue
 
