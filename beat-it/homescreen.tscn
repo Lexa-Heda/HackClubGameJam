@@ -28,17 +28,14 @@ offset_right = 337.0
 offset_bottom = 541.5
 grow_vertical = 2
 
-[node name="TextureRect" type="TextureRect" parent="VBoxContainer" unique_id=855880859]
+[node name="Button" type="Button" parent="VBoxContainer" unique_id=374283482]
 layout_mode = 2
-mouse_default_cursor_shape = 2
-texture = ExtResource("3_a17e7")
+icon = ExtResource("3_a17e7")
 
-[node name="TextureRect2" type="TextureRect" parent="VBoxContainer" unique_id=841329261]
+[node name="Button2" type="Button" parent="VBoxContainer" unique_id=1841989335]
 layout_mode = 2
-mouse_default_cursor_shape = 2
-texture = ExtResource("4_v0us7")
+icon = ExtResource("4_v0us7")
 
-[node name="TextureRect3" type="TextureRect" parent="VBoxContainer" unique_id=457233287]
+[node name="Button3" type="Button" parent="VBoxContainer" unique_id=1166108979]
 layout_mode = 2
-mouse_default_cursor_shape = 2
-texture = ExtResource("5_gboke")
+icon = ExtResource("5_gboke")
