@@ -1,147 +1,185 @@
-extends Node
-
-
-
-class_name Generator
+class_name LevelGenerator
+extends RefCounted
 
 class Poi:
-	var timestamp: float # seconds
-
-class ObstacleData:
-	var x: float
-	var y: float
 	var timestamp: float
-	var element_name: String
-	var direction: float # -1.0 = down, 1.0 = up; for WALLDASH the wall to dash toward
-	func _init(x_: float, y_: float, timestamp_: float, element_name_: String, direction_: float) -> void:
-		self.x = x_
-		self.y = y_
-		self.timestamp = timestamp_
-		self.element_name = element_name_
-		self.direction = direction_
-		
-		
-	
-class DecisionReturn:
-	var x: float
-	var y: float
-	var element_name: String
-	var direction: float
+
+	func _init(p_timestamp: float = 0.0) -> void:
+		timestamp = p_timestamp
+
+const SCROLL_SPEED := 200.0  # ggf. Constants.constants.SCROLL_SPEED
+const LEAD_TIME := 2.0
+const VISIBLE_TIME := 5.0
+const MIN_POI_GAP := 1.5
+const MIN_CONNECTION := 40.0
+const MARGIN := 4.0
+const FIRST_FLOOR_WIDTH := 300.0
+
+const Y_MIN := 300.0
+const Y_MAX := 800.0
+const MAX_REPEATS := 2  # gleicher Typ höchstens so oft hintereinander
+
+# Basisgewichte der Hindernisse
+const WEIGHTS := {
+	LevelElement.Type.GAP: 3.0,
+	LevelElement.Type.WALLJUMP: 2.0,
+	LevelElement.Type.DROPDOWN: 2.0,
+}
+
+var seed_value := 0  # 0 = zufällig, sonst reproduzierbar
 
 
+func generate(pois: Array[Poi], start_pos: Vector2) -> Array[LevelElement]:
+	var rng := RandomNumberGenerator.new()
+	if seed_value != 0:
+		rng.seed = seed_value
+	else:
+		rng.randomize()
 
-class generator:
-	const scroll_speed: int = Constants.constants.SCROLL_SPEED # pixels per second, player runs right constantly
-	
-	func _init() -> void:
-		pass
-	
-	func generate_level(poi: Array[Poi]) -> Array[ObstacleData]:
-		var obstacles: Array[ObstacleData] = []
+	var elements: Array[LevelElement] = []
 
-		for point in poi:
-			var decision: DecisionReturn
-			if obstacles.is_empty():
-				decision = decision_tree([], point.timestamp, point.timestamp)
-			else:
-				var delta := point.timestamp - obstacles[-1].timestamp
-				decision = decision_tree(obstacles, delta, point.timestamp)
-			obstacles.append(ObstacleData.new(decision.x, decision.y, point.timestamp, decision.element_name, decision.direction))
-			
+	var first := LevelElement.create(
+		LevelElement.Type.FLOOR, start_pos,
+		LevelElement.Corner.BOTTOM_LEFT, {"width": FIRST_FLOOR_WIDTH}
+	)
+	first.set_timing(LEAD_TIME, LEAD_TIME + LevelElement.FADE_TIME, VISIBLE_TIME)
+	elements.append(first)
 
-		return obstacles
-	func decision_tree(obstacles: Array[ObstacleData], delta_timestamp: float, timestamp: float) -> DecisionReturn:
-		var result := DecisionReturn.new()
-		# x is purely time-based: the player scrolls right at a constant speed
-		result.x = timestamp * scroll_speed
-		result.direction = 1.0
+	var cursor := first.end_pos
+	var corner: int = first.out_corner
+	var last_time := 0.0
+	var consumed := FIRST_FLOOR_WIDTH
+	var history: Array[int] = []
 
-		# Branch 1: first obstacle of the level 
-		if obstacles.is_empty():
-			result.element_name = Constants.ELEMENT.keys()[Constants.ELEMENT.CHANGE_IN_HEIGHTS]
-			result.y = 0.0
-			return result
+	var sorted: Array[Poi] = []
+	sorted.append_array(pois)
+	sorted.sort_custom(func(a: Poi, b: Poi) -> bool: return a.timestamp < b.timestamp)
 
-		var last: ObstacleData = obstacles[-1]
-		var last_element: int = _element_from_name(last.element_name)
+	for poi in sorted:
+		var delta := poi.timestamp - last_time
+		if delta < MIN_POI_GAP:
+			continue
 
-		# Branch 2: very tight spacing -> simple height change, no gimmick 
-		if delta_timestamp < 0.25:
-			result.element_name = Constants.ELEMENT.keys()[Constants.ELEMENT.CHANGE_IN_HEIGHTS]
-			var dy := _pick([-1.0, 1.0]) * 2.0
-			result.y = _clamp_height(last.y + dy)
-			result.direction = signf(dy)
-			return result
+		var width := maxf(MIN_CONNECTION, delta * SCROLL_SPEED - consumed)
+		var order := _weighted_order(cursor, history, rng)
 
-		# Branch 3: avoid repeating the same gimmick twice in a row 
-		var avoid: int = last_element
+		var pair: Array[LevelElement] = []
+		for t in order:
+			pair = _place(elements, poi.timestamp, t, width, cursor, corner)
+			if not pair.is_empty():
+				history.append(t)
+				break
 
-		#  Branch 4: pick element by tempo bucket 
-		var chosen: int
-		if delta_timestamp < 0.6:
-			# fast section: walldash is cheap to react to
-			chosen = _pick_element_excluding([avoid])
-		elif delta_timestamp < 1.2:
-			# mid tempo: alternate heights and walldash
-			chosen = _pick_element_excluding([Constants.ELEMENT.REVERSE_GRAVITY, avoid])
-		else:
-			# slow section: gravity flips are readable here
-			chosen = _pick_element_excluding([Constants.ELEMENT.WALLDASH, avoid])
+		if pair.is_empty():
+			push_warning("POI bei %.2fs übersprungen: kein freier Platz." % poi.timestamp)
+			continue
 
-		result.element_name = Constants.ELEMENT.keys()[chosen]
+		for e in pair:
+			elements.append(e)
+		var obstacle: LevelElement = pair[1]
+		cursor = obstacle.end_pos
+		corner = obstacle.out_corner
+		last_time = poi.timestamp
+		consumed = obstacle.path_length()
 
-		# Branch 5: position depends on chosen element
-		match chosen:
-			Constants.ELEMENT.CHANGE_IN_HEIGHTS:
-				var dy := _pick([-1.0, 1.0]) * 4.0
-				result.y = _clamp_height(last.y + dy)
-				result.direction = signf(dy)
-			Constants.ELEMENT.WALLDASH:
-				# Wall-Dash: eine Ebene hoeher springen und Richtung wechseln
-				result.y = _clamp_height(last.y + LEVEL_STEP)
-				result.direction = -last.direction
-			Constants.ELEMENT.DROP_IN_HEIGHT:
-				# Drop: eine Ebene tiefer fallen
-				result.y = _clamp_height(last.y - LEVEL_STEP)
-				result.direction = -1.0
-			Constants.ELEMENT.REVERSE_GRAVITY:
-				result.y = _clamp_height(-last.y)
-				result.direction = -last.direction
+	return elements
 
-		return result
 
-	func _element_from_name(element_name: String) -> int:
-		match element_name:
-			"CHANGE_IN_HEIGHTS":
-				return Constants.ELEMENT.CHANGE_IN_HEIGHTS
-			"WALLDASH":
-				return Constants.ELEMENT.WALLDASH
-			"REVERSE_GRAVITY":
-				return Constants.ELEMENT.REVERSE_GRAVITY
-			"DROP_IN_HEIGHT":
-				return Constants.ELEMENT.DROP_IN_HEIGHT
-		return Constants.ELEMENT.CHANGE_IN_HEIGHTS
+# Gewichtete Zufallsreihenfolge: erster Eintrag = bevorzugter Typ.
+func _weighted_order(cursor: Vector2, history: Array[int], rng: RandomNumberGenerator) -> Array[int]:
+	var pool: Dictionary = {}
 
-	func _pick_element_excluding(excluded: Array) -> int:
-		var pool: Array[int] = [
-			Constants.ELEMENT.CHANGE_IN_HEIGHTS,
-			Constants.ELEMENT.WALLDASH,
-			Constants.ELEMENT.REVERSE_GRAVITY,
-			Constants.ELEMENT.DROP_IN_HEIGHT,
-		]
-		var candidates: Array[int] = []
-		for e in pool:
-			if e not in excluded:
-				candidates.append(e)
-		if candidates.is_empty():
-			candidates = pool
-		return candidates[randi() % candidates.size()]
+	for t in WEIGHTS:
+		var w: float = WEIGHTS[t]
 
-	func _pick(values: Array) -> float:
-		return values[randi() % values.size()]
+		if t == LevelElement.Type.WALLJUMP and cursor.y - LevelElement.WALL_HEIGHT < Y_MIN:
+			continue
+		if t == LevelElement.Type.DROPDOWN and cursor.y + 200.0 > Y_MAX:
+			continue
 
-	const HEIGHT_LIMIT := 40.0
-	const LEVEL_STEP := 20.0 # eine "Ebene" = 20 Einheiten (Levels: -40, -20, 0, 20, 40)
+		# Höhenausgleich: tief -> Walljump bevorzugen, hoch -> Dropdown.
+		var mid := (Y_MIN + Y_MAX) * 0.5
+		if t == LevelElement.Type.WALLJUMP and cursor.y > mid:
+			w *= 2.0
+		if t == LevelElement.Type.DROPDOWN and cursor.y < mid:
+			w *= 2.0
 
-	func _clamp_height(y: float) -> float:
-		return clampf(y, -HEIGHT_LIMIT, HEIGHT_LIMIT)
+		# Zu viele Wiederholungen vermeiden.
+		if _repeat_count(history, t) >= MAX_REPEATS:
+			w *= 0.05
+
+		pool[t] = w
+
+	var order: Array[int] = []
+	while not pool.is_empty():
+		var total := 0.0
+		for t in pool:
+			total += pool[t]
+		var roll := rng.randf() * total
+		var picked: int = pool.keys()[0]
+		for t in pool:
+			roll -= pool[t]
+			if roll <= 0.0:
+				picked = t
+				break
+		order.append(picked)
+		pool.erase(picked)
+
+	return order
+
+
+func _repeat_count(history: Array[int], t: int) -> int:
+	var n := 0
+	for i in range(history.size() - 1, -1, -1):
+		if history[i] != t:
+			break
+		n += 1
+	return n
+
+
+# Gibt [connection, obstacle] zurück oder [] bei Kollision.
+func _place(
+		elements: Array[LevelElement],
+		timestamp: float,
+		type: int,
+		width: float,
+		cursor: Vector2,
+		corner: int
+) -> Array[LevelElement]:
+	var previous: LevelElement = elements[-1]
+	var obstacle_start := cursor + Vector2(width * float(corner), 0.0)
+
+	var connection := LevelElement.create(
+		LevelElement.Type.CONNECTION, cursor, corner, {"end_pos": obstacle_start}
+	)
+	if connection == null:
+		return []
+	var obstacle := LevelElement.create(type, obstacle_start, corner)
+
+	connection.set_timing(timestamp, LEAD_TIME, VISIBLE_TIME)
+	obstacle.set_timing(timestamp, LEAD_TIME, VISIBLE_TIME)
+	connection.appear_time = minf(connection.appear_time, previous.appear_time)
+
+	if _collides(connection, elements, previous) or _collides(obstacle, elements, previous):
+		return []
+
+	var result: Array[LevelElement] = [connection, obstacle]
+	return result
+
+
+func _collides(
+		candidate: LevelElement,
+		elements: Array[LevelElement],
+		ignore: LevelElement
+) -> bool:
+	var mine := candidate.collision_rects()
+	for other in elements:
+		if other == ignore:
+			continue
+		if not other.overlaps_time(candidate.appear_time, candidate.disappear_time):
+			continue
+		for rb in other.collision_rects():
+			for ra in mine:
+				if ra.grow(MARGIN).intersects(rb):
+					return true
+	return false

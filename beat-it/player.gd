@@ -8,8 +8,6 @@ class_name Player
 const SPEED := 200.0
 const HALF_HEIGHT := 10.0
 
-var obstacles: Array[Generator.ObstacleData] = []
-var obstacle_index := 0
 var _visual: Polygon2D
 
 
@@ -23,11 +21,6 @@ func _ready() -> void:
 	])
 	_visual.color = Color(1.0, 0.4, 0.2) # orange
 	add_child(_visual)
-
-
-func setup(level_obstacles: Array[Generator.ObstacleData]) -> void:
-	obstacles = level_obstacles
-	obstacle_index = 1 # erstes Hindernis = Start-Element, ueberspringen
 
 
 func _physics_process(delta: float) -> void:
